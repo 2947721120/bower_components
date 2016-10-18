@@ -1,0 +1,11 @@
+{
+  "name": "polymer-project",
+  "dependencies": {
+    "app-layout": "PolymerElements/app-layout#^0.10.0",
+    "firebase-element": "GoogleWebComponents/firebase-element#^1.0.0",
+    "google-analytics": "GoogleWebComponents/google-analytics#^1.0.0",
+    "google-apis": "GoogleWebComponents/google-apis#^1.0.0",
+    "google-calendar": "GoogleWebComponents/google-calendar#^1.0.0",
+    "google-sheets": "GoogleWebComponents/google-sheets#^1.0.1"
+  }
+}
