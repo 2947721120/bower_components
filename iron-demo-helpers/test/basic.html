@@ -1,0 +1,127 @@
+<!doctype html>
+<!--
+@license
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>演示片段测试</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+
+  <script src="//cdn.c2cmalls.com/bower_components/webcomponentsjs/webcomponents-lite.js"></script>
+  <script src="//cdn.c2cmalls.com/bower_components/web-component-tester/browser.js"></script>
+  <link rel="import" href="//cdn.c2cmalls.com/bower_components/iron-demo-helpers/demo-snippet.html">
+  <script src="//cdn.c2cmalls.com/bower_components/iron-test-helpers/test-helpers.js"></script>
+  <link rel="import" href="//cdn.c2cmalls.com/bower_components/paper-checkbox/paper-checkbox.html">
+
+</head>
+<body>
+  <!--
+    *** Important! ***
+    你会发现，这些试验不使用测试夹具。 那是因为
+    有冲压嵌套模板IE / Safari浏览器8.这是一个问题
+    应该最终webcomponents.js被修补，但在此期间
+    我们要运行这些测试“的老路上".
+
+   这是相关的，因为这意味着你，作为供试作家，
+    需要记住，元素的状态保持测试之间。
+    如果你不希望这样，既可以使用一个新的元素，或者清理后
+    测试.
+  -->
+
+  <demo-snippet id="emptyDemo"></demo-snippet>
+
+  <demo-snippet id="nativeDemo">
+    <template>
+      <input disabled>
+    </template>
+  </demo-snippet>
+
+  <demo-snippet id="customDemo">
+    <template>
+      <paper-checkbox disabled></paper-checkbox>
+    </template>
+  </demo-snippet>
+
+  <demo-snippet id="demoWithAttributes">
+    <template>
+      <input disabled type="date">
+    </template>
+  </demo-snippet>
+
+  <script>
+    suite('display', function() {
+      var emptyHeight;
+
+      setup(function() {
+        var emptyDemo = document.getElementById('emptyDemo');
+        emptyHeight = emptyDemo.getBoundingClientRect().height;
+      });
+
+      test('可以呈现自然元素', function() {
+        var element = document.getElementById('nativeDemo');
+
+        //渲染分布式儿.
+        Polymer.dom.flush();
+
+        var rect = element.getBoundingClientRect();
+
+        expect(rect.height).to.be.greaterThan(emptyHeight);
+
+       //演示呈现在光DOM，所以它应该存在的，
+        //它应该尊重演示元素的属性，并不能弥补
+         // 新的。
+        var input = Polymer.dom(element).querySelector('input')
+        expect(input).to.be.ok;
+        expect(input.disabled).to.be.true;
+        expect(input.checked).to.be.false;
+
+        var markdownElement = element.$.marked;
+        expect(markdownElement.markdown).to.be.equal('```\n\n<input disabled>\n\n```');
+      });
+
+      test('可以使自定义元素', function() {
+        var element = document.getElementById('customDemo');
+
+        // 渲染分布式孩子.
+        Polymer.dom.flush();
+
+        var rect = element.getBoundingClientRect();
+
+        expect(rect.height).to.be.greaterThan(emptyHeight);
+
+        //演示呈现在光DOM，所以它应该存在的，
+        //它应该尊重演示元素的属性，并不能弥补
+         // 新的。
+        var checkbox = Polymer.dom(element).querySelector('paper-checkbox')
+        expect(checkbox).to.be.ok;
+        expect(checkbox.disabled).to.be.true;
+        expect(checkbox.checked).to.be.false;
+
+        var markdownElement = element.$.marked;
+        expect(markdownElement.markdown).to.be.equal(
+            '```\n\n<paper-checkbox disabled></paper-checkbox>\n\n```');
+      });
+    });
+
+    suite('parsing', function() {
+      test('保留属性', function() {
+        var element = document.getElementById('demoWithAttributes');
+
+        // 渲染分布式孩子.
+        Polymer.dom.flush();
+
+        var markdownElement = element.$.marked;
+        expect(markdownElement.markdown).to.be.equal(
+            '```\n\n<input disabled type="date">\n\n```');
+      });
+    });
+  </script>
+</body>
+</html>

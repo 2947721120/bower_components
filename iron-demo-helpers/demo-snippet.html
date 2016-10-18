@@ -1,0 +1,205 @@
+<!--
+@license
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+
+<link rel="import" href="//cdn.c2cmalls.com/bower_components/polymer/polymer.html">
+<link rel="import" href="//cdn.c2cmalls.com/bower_components/iron-icons/iron-icons.html">
+<link rel="import" href="//cdn.c2cmalls.com/bower_components/marked-element/marked-element.html">
+<link rel="import" href="//cdn.c2cmalls.com/bower_components/paper-icon-button/paper-icon-button.html">
+<link rel="import" href="//cdn.c2cmalls.com/bower_components/paper-styles/color.html">
+<link rel="import" href="//cdn.c2cmalls.com/bower_components/paper-styles/shadow.html">
+<link rel="import" href="//cdn.c2cmalls.com/bower_components/prism-element/prism-highlighter.html">
+
+<!--
+`demo-snippet` 是显示一个代码片段的来源一个辅助元素，
+其呈现的演示。它可以用于两种天然元素和
+聚合物元件.
+
+    本地元素演示示例
+
+        <demo-snippet>
+          <template>
+            <input type="date">
+          </template>
+        </demo-snippet>
+
+    <paper-checkbox>一个聚合物的例子 演示
+
+   <demo-snippet class="centered-demo">
+      <template>
+        <paper-checkbox>复选框</paper-checkbox>
+        <paper-checkbox checked>复选框</paper-checkbox>
+      </template>
+    </demo-snippet>
+    
+     <h4>与自定义样式元素的演示</h4>
+    <demo-snippet class="centered-demo small-text">
+      <template>
+        <style is="custom-style">
+          paper-checkbox.blue {
+            --paper-checkbox-checked-color: var(--paper-blue-500);
+            --paper-checkbox-checked-ink-color: var(--paper-blue-500);
+            --paper-checkbox-unchecked-color: var(--paper-blue-900);
+            --paper-checkbox-unchecked-ink-color: var(--paper-blue-900);
+            --paper-checkbox-label-color: var(--paper-blue-500);
+          }
+          paper-checkbox.red {
+            --paper-checkbox-checked-color: var(--paper-red-500);
+            --paper-checkbox-checked-ink-color: var(--paper-red-500);
+            --paper-checkbox-unchecked-color: var(--paper-red-900);
+            --paper-checkbox-unchecked-ink-color: var(--paper-red-900);
+            --paper-checkbox-label-color: var(--paper-red-500);
+          }
+        </style>
+
+        <paper-checkbox class="blue">复选框</paper-checkbox>
+        <paper-checkbox checked class="red">复选框</paper-checkbox>
+      </template>
+    </demo-snippet>
+
+### 造型
+
+下面的自定义属性和混入可供造型:
+
+自定义属性 | 描述 | 默认
+----------------|-------------|----------
+`--demo-snippet` | 混入应用到整个元件 | `{}`
+`--demo-snippet-demo` | 混入适用于刚刚演示部分 | `{}`
+`--demo-snippet-code` | 混入适用于刚刚代码段 | `{}`
+
+@element demo-snippet
+@demo demo/index.html
+-->
+
+<dom-module id="demo-snippet">
+  <template>
+    <style>
+      :host {
+        display: block;
+        @apply(--shadow-elevation-2dp);
+        @apply(--demo-snippet);
+      }
+
+      .demo {
+        border-bottom: 1px solid var(--google-grey-300);
+        background-color: white;
+        margin: 0;
+        padding: 20px;
+        @apply(--demo-snippet-demo);
+      }
+
+      .code {
+        padding: 20px;
+        margin: 0;
+        background-color: var(--google-grey-100);
+        font-size: 13px;
+        overflow: auto;
+        @apply(--demo-snippet-code);
+      }
+
+      .code > pre {
+        margin: 0;
+        padding: 0 0 10px 0;
+      }
+
+      .code-container {
+        position: relative;
+      }
+
+      paper-icon-button {
+        position: absolute;
+        top: 0;
+        right: 0px;
+      }
+
+    </style>
+
+    <prism-highlighter></prism-highlighter>
+
+    <div class="demo">
+      <content id="content"></content>
+    </div>
+
+    <div class="code-container">
+      <marked-element markdown=[[_markdown]] id="marked">
+        <div class="markdown-html code" id="code"></div>
+      </marked-element>
+      <paper-icon-button
+          id="copyButton"
+          icon="content-copy"
+          title="复制到剪贴板"
+          on-tap="_copyToClipboard">
+      </paper-icon-button>
+    </div>
+  </template>
+
+  <script>
+    'use strict';
+
+    Polymer({
+      is: 'demo-snippet',
+
+      properties: {
+        _markdown: {
+          type: String,
+          value: ''
+        }
+      },
+
+      attached: function() {
+        var template = Polymer.dom(this).queryDistributedElements('template')[0];
+
+        // 如果没有模板，呈现空代码。
+        if (!template) {
+          this._markdown = '```\n```';
+          return;
+        }
+
+        var snippet = this.$.marked.unindent(template.innerHTML);
+
+        // 布尔属性显示为checked="",所以删除 ="" bit.
+        snippet = snippet.replace(/=""/g, '');
+
+        this._markdown = '```\n' + snippet + '\n' + '```';
+
+        //邮票模板.
+        Polymer.dom(this).appendChild(document.importNode(template.content, true));
+      },
+
+      _copyToClipboard: function() {
+        // 形成 https://github.com/google/material-design-lite/blob/master/docs/_assets/snippets.js
+        var snipRange = document.createRange();
+        snipRange.selectNodeContents(this.$.code);
+        var selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(snipRange);
+        var result = false;
+        try {
+          result = document.execCommand('copy');
+          this.$.copyButton.icon = 'done';
+        } catch (err) {
+          // 复制命令不可用
+          console.error(err);
+          this.$.copyButton.icon = 'error';
+        }
+
+        //返回副本按钮后，第二次.
+        setTimeout(this._resetCopyButtonState.bind(this), 1000);
+
+        selection.removeAllRanges();
+        return result;
+      },
+
+      _resetCopyButtonState: function() {
+        this.$.copyButton.icon = 'content-copy';
+      }
+    });
+  </script>
+
+</dom-module>

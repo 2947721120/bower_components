@@ -1,0 +1,269 @@
+<!--
+@license
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../marked-element/marked-element.html">
+<link rel="import" href="../paper-button/paper-button.html">
+<link rel="import" href="../paper-styles/color.html">
+<link rel="import" href="../paper-styles/shadow.html">
+<link rel="import" href="../paper-styles/typography.html">
+<link rel="import" href="../prism-element/prism-highlighter.html">
+<link rel="import" href="iron-doc-property.html">
+<link rel="import" href="iron-doc-viewer-styles.html">
+
+<!--
+渲染描述元素的应用程序的文档的文档。
+
+`iron-doc-viewer` 渲染元素和行为描述所提取的
+[Hydrolysis](https://github.com/PolymerLabs/hydrolysis). 你可以为他们提供
+通过绑定。..
+
+    <iron-doc-viewer descriptor="{{elementDescriptor}}"></iron-doc-viewer>
+
+...或放置元件描述JSON作为文本内容
+`iron-doc-viewer`:
+
+    <iron-doc-viewer>
+      {
+        "is": "awesome-sauce",
+        "properties": [
+          {"name": "isAwesome", "type": "boolean", "desc": "Is it awesome?"},
+        ]
+      }
+    </iron-doc-viewer>
+
+但是，要知道，由于当前限制在聚合物0.8，_changes_到
+文字内容将不被尊重，只有初始值将被加载。
+如果你要更新的文档元素，请通过`descriptor`设置
+属性.
+
+@demo demo/index.html 基本的演示
+-->
+
+<dom-module id="iron-doc-viewer">
+  <template>
+    <style include="iron-doc-viewer-styles"></style>
+
+    <prism-highlighter></prism-highlighter>
+
+    <section id="summary" class="card" hidden$="[[!descriptor.desc]]">
+      <marked-element markdown="{{descriptor.desc}}">
+        <div class="markdown-html"></div>
+      </marked-element>
+    </section>
+
+    <nav id="api">
+      <header>API 参考</header>
+      <paper-button id="togglePrivate"
+        on-tap="_togglePrivate">{{_privateToggleLabel}}</paper-button>
+    </nav>
+
+    <section id$="[[_formatAnchor(prefix,'properties')]]" class="card" hidden$="{{_noneToShow(_showPrivate,_properties)}}">
+      <header><a href$="#[[_formatAnchor(prefix,'properties')]]" class="deeplink">属性</a></header>
+      <template is="dom-repeat" items="{{_properties}}" hidden$="{{!_properties.length}}">
+        <iron-doc-property anchor-id="[[_formatAnchor(prefix,'property',item.name)]]" descriptor="{{item}}"></iron-doc-property>
+      </template>
+    </section>
+
+    <section id$="[[_formatAnchor(prefix,'methods')]]" class="card"  hidden$="{{_noneToShow(_showPrivate,_methods)}}">
+      <header><a href$="#[[_formatAnchor(prefix,'methods')]]" class="deeplink">方法</a></header>
+      <template is="dom-repeat" items="{{_methods}}">
+        <iron-doc-property anchor-id="[[_formatAnchor(prefix,'method',item.name)]]" descriptor="{{item}}"></iron-doc-property>
+      </template>
+    </section>
+
+    <section id$="[[_formatAnchor(prefix,'events')]]" class="card" hidden$="{{_noneToShow(_showPrivate,_events)}}">
+      <header><a href$="#[[_formatAnchor(prefix,'events')]]" class="deeplink">事件</a></header>
+      <template is="dom-repeat" items="{{_events}}">
+        <iron-doc-property anchor-id="[[_formatAnchor(prefix,'event',item.name)]]" descriptor="{{item}}"></iron-doc-property>
+      </template>
+    </section>
+
+    <section id$="[[_formatAnchor(prefix,'behaviors')]]" class="card" hidden$="{{_hideBehaviors(_behaviors)}}">
+      <header><a href$="#[[_formatAnchor(prefix,'behaviors')]]" class="deeplink">行为</a></header>
+      <template is="dom-repeat" items="{{_behaviors}}">
+        <p on-click="_broadcastBehavior">{{item}}</p>
+      </template>
+    </section>
+  </template>
+
+  <script>
+    (function() {
+      Polymer({
+        is: 'iron-doc-viewer',
+
+        properties: {
+          /**
+           * 该[Hydrolysis](https://github.com/PolymerLabs/hydrolysis)-产生
+           *元素描述为显示详细信息。
+           *
+           *另外，该元素描述符可以通过文本内容提供为JSON
+           *此元素的.
+           *
+           * @type {hydrolysis.ElementDescriptor}
+           */
+          descriptor: {
+            type: Object,
+            observer: '_descriptorChanged',
+          },
+
+          /**
+         *前缀为锚使用片段标识符。
+           *对于静态路由`铁组件page``iron-component-page`能
+           *此设置为一个字符串，标识当前组件。
+           */
+          prefix: {
+            type: String,
+            value: ''
+          },
+
+          /** 私有属性是否应该被隐藏或显示. */
+          _showPrivate: {
+            type:     Boolean,
+            value:    false,
+            observer: '_showPrivateChanged',
+          },
+
+          /** 显示为私有的“切换”的标签。 */
+          _privateToggleLabel: String,
+
+          /**
+           * 当另一个组件被单击时广播
+           * @param {String} 组件的详细名称
+           * iron-doc-viewer容器应加载组件，如果可能的话
+           * @event iron-doc-viewer-component-selected
+           */
+        },
+
+        ready: function() {
+          var jsonDescriptor = this._loadJson();
+      //注意，这是元素创建过程中只有一个错误。 你自由了
+          //踩在描述符之后它已准备就绪。
+          if (jsonDescriptor && this.descriptor) {
+            console.error(
+                this,
+                'received both a bound descriptor:', this.descriptor,
+                'and JSON descriptor:', this._jsonDescriptor,
+                'Please provide only one');
+            throw new Error(
+                '<iron-doc-viewer> accepts either a bound or JSON descriptor; not both');
+          }
+
+          if (jsonDescriptor) {
+            this.descriptor = jsonDescriptor;
+          }
+        },
+
+        /**
+     *从加载的文本内容水解元素描述符（如JSON）
+         *此元素，如果存在的话。
+         *
+         * @return {hydrolysis.ElementDescriptor} 解析的描述符，或 `null`.
+         */
+        _loadJson: function() {
+          var textContent = '';
+          Array.prototype.forEach.call(Polymer.dom(this).childNodes, function(node) {
+            textContent = textContent + node.textContent;
+          });
+          textContent = textContent.trim();
+          if (textContent === '') return null;
+
+          try {
+            return JSON.parse(textContent);
+          } catch(error) {
+            console.error('Failure when parsing JSON:', textContent, error);
+            throw error;
+          }
+        },
+
+        /** Converts `描述到我们的模板友好`_model`. */
+        _descriptorChanged: function() {
+          if (!this.descriptor) return;
+
+          // 分割功能和其他类型的文档属性。
+          var properties = [];
+          var methods    = [];
+
+          for (var i = 0, property; property = this.descriptor.properties[i]; i++) {
+            (property.type === 'Function' ? methods : properties).push(property);
+          }
+          this._properties = properties;
+          this._methods    = methods;
+          this._events     = this.descriptor.events || [];
+          this._behaviors  = this.descriptor.behaviors || [];
+
+          this.toggleAttribute('abstract', this.descriptor.abstract);
+        },
+
+        /**
+    *滚动到当前选定的锚，作为确定
+         *由URL哈希值。无论元素或脚本负责路由
+         *应拨打初始页面加载这个方法，
+         *在hashchange事件。
+         */
+        scrollToAnchor: function(hash) {
+          // TODO：处理链接到私有成员
+          if (hash && hash.length > 1) {
+            // 确保所有的DOM重复使。
+            Polymer.dom.flush();
+            var anchorId = window.location.hash.slice(1);
+            var elementToFocus = this.$$('[anchor-id="' + anchorId + '"]');
+            if (elementToFocus) {
+              elementToFocus.scrollIntoView();
+            }
+          }
+        },
+
+        _collapsedChanged: function() {
+          this._collapseToggleLabel = this._collapsed ? 'expand' : 'collapse';
+
+          //结合值不暴露于DOM的重复范围。
+          var properties = this.querySelectorAll('iron-doc-property');
+          for (var i = 0, property; property = properties[i]; i++) {
+            property.collapsed = this._collapsed;
+          }
+        },
+
+        _toggleCollapsed: function() {
+          this._collapsed = !this._collapsed;
+        },
+
+        _showPrivateChanged: function() {
+          this._privateToggleLabel = (this._showPrivate ? '隐藏' : '显示') + ' 私有API';
+          this.toggleClass('show-private', this._showPrivate);
+        },
+
+        _togglePrivate: function() {
+          this._showPrivate = !this._showPrivate;
+        },
+
+        _noneToShow: function(showPrivate, items) {
+          for (var i = 0; i < items.length; i++) {
+            if (showPrivate || !items[i].private) return false;
+          }
+          return true;
+        },
+
+        _formatAnchor: function(prefix, type, membername) {
+          var suffix = membername ? '-' + membername : '';
+          return prefix + type + suffix;
+        },
+
+        _hideBehaviors: function(behaviors) {
+          return behaviors === null || behaviors.length === 0;
+        },
+
+        _broadcastBehavior: function(ev) {
+          this.fire('iron-doc-viewer-component-selected', ev.target._templateInstance.item);
+        }
+      });
+    })();
+  </script>
+</dom-module>

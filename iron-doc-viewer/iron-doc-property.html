@@ -1,0 +1,216 @@
+<!--
+@license
+Copyright (c) 2015 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+
+<link rel="import" href="../polymer/polymer.html">
+<link rel="import" href="../marked-element/marked-element.html">
+<link rel="import" href="iron-doc-property-styles.html">
+
+<!--
+呈现描述一个元件的一个特定属性的文档。
+
+给它一个水解`PropertyDescriptor`（通过`descriptor`），并观看它去吧!
+-->
+
+<dom-module id="iron-doc-property">
+  <template>
+    <style include="iron-doc-property-styles"></style>
+
+    <div id="transitionMask">
+      <div id="signature">
+        <a id$="[[anchorId]]" href$="#[[anchorId]]" class="name deeplink">{{descriptor.name}}</a><span class="params">(<span>{{_paramText}}</span>)</span>
+        <span class="return" hidden$="{{!descriptor.return}}">➙ <span class="type">{{descriptor.return.type}}</span></span>
+      </div>
+      <div id="details">
+        <div id="meta" hidden$="{{_computeHideMeta(descriptor)}}">
+          <span id="type" class="type">{{descriptor.type}}</span>
+          <span class="annotation">[[_getAnnotation(descriptor)]]</span>
+        </div>
+        <ol id="params" hidden$="{{_computeHideParams(descriptor,return)}}">
+          <template is="dom-repeat" items="{{descriptor.params}}">
+            <li hidden$="{{!item.type}}">
+              <span class="name">{{item.name}}</span>
+              <span class="type">{{item.type}}</span>
+              <marked-element markdown="{{item.desc}}">
+                <div class="markdown-html"></div>
+              </marked-element>
+            </li>
+          </template>
+          <li class="return" hidden$="{{!descriptor.return}}">返回
+            <span class="type">{{descriptor.return.type}}</span>
+            <marked-element markdown="{{descriptor.return.desc}}">
+              <div class="markdown-html"></div>
+            </marked-element>
+          </li>
+        </ol>
+        <marked-element id="desc" markdown="{{descriptor.desc}}" hidden$="{{!descriptor.desc}}">
+          <div class="markdown-html"></div>
+        </marked-element>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    (function() {
+      Polymer({
+        is: 'iron-doc-property',
+
+        properties: {
+          /**
+           * 该 [Hydrolysis](https://github.com/PolymerLabs/hydrolysis)-生成
+           * 元素描述符以显示详细信息.
+           *
+           *另外，该元素描述符可以通过文本内容提供为JSON
+           *此元素的.
+           *
+           * @type {hydrolysis.PropertyDescriptor}
+           */
+          descriptor: {
+            type:     Object,
+            observer: '_descriptorChanged',
+          },
+
+          /**
+         *属性是否应显示一行程序，或全面总结。
+           *
+           *请注意，这个属性体现_is_作为一个属性，但我们执行
+           *反射手动。为了支持CSS过渡，我们
+           *设置属性之前必须计算元素的高度。
+           */
+          collapsed: {
+            type:     Boolean,
+            value:    false,
+            observer: '_collapsedChanged',
+          },
+
+          /**
+           * 深连接的唯一的锚号
+           */
+          anchorId: {
+            type: String,
+            reflectToAttribute: true,
+          },
+
+          _paramText: String,
+        },
+
+        listeners: {
+          'transitionEnd':       '_onTransitionEnd',
+          'webkitTransitionEnd': '_onTransitionEnd',
+        },
+
+        ready: function() {
+          this._isReady = true;
+        },
+
+        /**
+        *重置被设置了转换任何状态。
+         *
+         *我们是认真的过渡后，我们明确指定的高度重
+         *完成，因此，如果用户改变属性不会夹值
+         *他们的口中。
+         */
+        _onTransitionEnd: function(event) {
+          if (event.path[0] !== this.$.transitionMask) return;
+          this.$.transitionMask.style.height = '';
+        },
+
+        _descriptorChanged: function() {
+          this.toggleAttribute('private',       this.descriptor.private);
+          this.toggleAttribute('configuration', this.descriptor.configuration);
+          this.toggleAttribute('function',      this.descriptor.function);
+          this._paramText = (this.descriptor.params || []).map(function(param) {
+            return param.name;
+          }).join(', ');
+        },
+
+        /**
+         * 反映了 `collapsed` 为 `_collapsed` 属性.
+         *
+         * "为什么不使用 `reflectToAttribute: true`?", 你问？罚款的问题！
+         *
+         *我们避免简单的反射，纯粹是因为没有纯声明
+         *从`高度过渡到/方式：auto`。这个回调管理
+         *设置明确的高度的属性，以便能够CSS插它。
+         *
+         * @see #_onTransitionEnd
+         */
+        _collapsedChanged: function() {
+          if (!this._isReady) {
+            this.toggleAttribute('_collapsed', this.collapsed);
+            return;
+          }
+
+          var container = this.$.transitionMask;
+          var collapsed = this.collapsed;
+
+       //措施`高度：auto`，这是我们需要考虑转型
+          //方向。我们假设折叠状态有一个明确的高度
+          //通过CSS规则设置;所以我们不要打扰测量的。
+          container.style.height = 'auto';
+          var fullHeight = container.offsetHeight;
+
+          // 然后，我们复位到启动状态。变化方向过渡
+          // is _not_ supported!
+          if (this.collapsed) {
+            container.style.height = fullHeight + 'px'; // 高度自动 'auto'.
+          } else {
+            container.style.height = ''; //通过CSS规则指定高度
+          }
+
+     //我们必须等待一个框架，使过渡引擎有机会认识
+          //的东西实际上是改变了。
+          requestAnimationFrame(function() {
+            this.toggleAttribute('_collapsed', collapsed);
+            if (this.collapsed) {
+              container.style.height = ''; // 通过CSS规则指定高度。
+            } else {
+              container.style.height = fullHeight + 'px'; // Height 'auto'.
+            }
+          }.bind(this));
+        },
+
+        //隐藏的，如果没有类型，没有默认
+        _computeHideMeta: function(descriptor) {
+          return descriptor.type === undefined &&  descriptor.default === undefined;
+        },
+
+        // 如果没有参数，没有返回值的隐藏，
+        _computeHideParams: function(descriptor,ret) {
+          return (!descriptor.params || descriptor.params.length === 0) && !ret;
+        },
+
+        _computeHideDefault: function(def) {
+          return def === undefined;
+        },
+
+        _computeDefaultDisplay: function(def) {
+          if (def === '')
+            return "''";
+          return def;
+        },
+
+        _getAnnotation: function(descriptor) {
+          var annotations = [];
+
+          if (descriptor['default'] !== undefined) {
+            annotations.push('Default: ' + descriptor['default']);
+          }
+          if (descriptor.readOnly) {
+            annotations.push('readOnly');
+          }
+          if (descriptor.notify) {
+            annotations.push('notifies');
+          }
+          return annotations.join(' – ');
+        }
+      });
+    })();
+  </script>
+</dom-module>

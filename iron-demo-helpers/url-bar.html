@@ -1,0 +1,102 @@
+<!--
+@license
+Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+<link rel="import" href="//cdn.c2cmalls.com/bower_components/polymer/polymer.html">
+<link rel="import" href="//cdn.c2cmalls.com/bower_components/iron-location/iron-location.html">
+<link rel="import" href="//cdn.c2cmalls.com/bower_components/iron-flex-layout/iron-flex-layout-classes.html">
+<link rel="import" href="//cdn.c2cmalls.com/bower_components/paper-styles/typography.html">
+
+<!--
+`url-bar` 是显示一个简单的只读的地址栏，如果一个辅助元素
+且仅当该网页是在iframe。通过这种方式，我们可以试玩元素
+应对我们基于iframe的演示环境的网址.
+
+如果页面是不是在iframe中，不显示的URL栏元素.
+
+### 造型
+
+下面的自定义属性和混入可供造型:
+
+自定义属性 | 描述 | 默认
+----------------|-------------|----------
+`--url-bar` |混入应用到整个元件 | `{}`
+
+@element url-bar
+@demo demo/url-bar.html
+-->
+<dom-module id='url-bar'>
+  <template>
+    <style include="iron-flex">
+      :host {
+        margin: 0px;
+        padding: 15px 35px;
+        border-bottom: 2px solid gray;
+        height: 1.5em;
+        display: none;
+        overflow-x: auto;
+        overflow-y: hidden;
+        background-color: white;
+        @apply(--url-bar);
+      }
+      :host[in-iframe] {
+        /* 这个元素只是想显示，如果是在iframe. */
+        display: block;
+      }
+      label {
+        @apply(--paper-font-common-base);
+        display: inline-block;
+        padding-right: 25px;
+      }
+      span {
+        @apply(--paper-font-common-code);
+        white-space: pre;
+      }
+    </style>
+    <iron-location path="{{path}}" query="{{query}}" hash="{{hash}}">
+    </iron-location>
+    <div class="layout horizontal">
+      <label>URL</label><span>{{url}}</span>
+    </div>
+  </template>
+  <script>
+    Polymer({
+      is: 'url-bar',
+      properties: {
+        url: {
+          computed: '__computeUrl(path, query, hash)'
+        },
+        inIframe: {
+          value: function() {
+            return window.top !== window;
+          },
+          reflectToAttribute: true
+        },
+        path: {
+          type: String
+        },
+        query: {
+          type: String
+        },
+        hash: {
+          type: String
+        }
+      },
+      __computeUrl: function(path, query, hash) {
+        var url = path;
+        if (query) {
+          url += '?' + query;
+        }
+        if (hash) {
+          url += '#' + hash;
+        }
+        return url;
+      }
+    })
+  </script>
+</dom-module>
